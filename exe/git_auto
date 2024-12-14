@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "git_auto"
+require "git_auto/cli"
+
+GitAuto::CLI.start(ARGV)

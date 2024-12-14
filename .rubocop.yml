@@ -1,0 +1,90 @@
+AllCops:
+  TargetRubyVersion: 3.0
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "bin/*"
+    - "tmp/**/*"
+    - "vendor/**/*"
+    - "*.gemspec"
+
+require:
+  - rubocop-rake
+  - rubocop-rspec
+
+# Style configurations
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Style/Documentation:
+  Enabled: false  # Changed based on project style
+
+Style/SymbolArray:
+  EnforcedStyle: brackets
+
+Style/WordArray:
+  EnforcedStyle: brackets
+
+Style/ClassVars:
+  Enabled: false  # Disabled as the project uses class variables intentionally
+
+Style/OptionalBooleanParameter:
+  Enabled: false  # Disabled as the project uses boolean parameters
+
+# Layout configurations
+Layout/LineLength:
+  Max: 120
+  Exclude:
+    - "spec/**/*"
+
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
+
+Layout/FirstArrayElementIndentation:
+  EnforcedStyle: consistent
+
+# Metrics configurations
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
+    - "*.gemspec"
+
+Metrics/MethodLength:
+  Max: 50  # Increased based on project needs
+
+Metrics/AbcSize:
+  Max: 35  # Slightly increased
+
+Metrics/ClassLength:
+  Max: 300  # Increased for service classes
+
+Metrics/CyclomaticComplexity:
+  Max: 15  # Increased for complex logic handling
+
+Metrics/PerceivedComplexity:
+  Max: 15  # Increased to match cyclomatic complexity
+
+# Naming configurations
+Naming/AccessorMethodName:
+  Enabled: false  # Disabled as get_ methods are used consistently
+
+Naming/PredicateName:
+  Enabled: false  # Disabled for has_ method naming convention
+
+# Bundler configurations
+Bundler/OrderedGems:
+  Enabled: true
+
+# Gemspec configurations
+Gemspec/RequiredRubyVersion:
+  Enabled: true
+
+# RSpec configurations
+RSpec/ExampleLength:
+  Max: 15
+
+RSpec/MultipleExpectations:
+  Max: 5
