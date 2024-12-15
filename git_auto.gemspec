@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["Guillermo Diaz"]
   spec.email = ["diazgdev@gmail.com"]
 
-  spec.summary = "AI-powered git commit message generator"
+  spec.summary = "AI-powered git commit messages using OpenAI or Anthropic APIs"
   spec.description = "GitAuto streamlines your git workflow by automatically generating meaningful commit messages using AI. It analyzes staged changes and generates conventional commit messages that are clear, consistent, and informative."
   spec.homepage = "https://github.com/diazgdev/git_auto"
   spec.license = "MIT"

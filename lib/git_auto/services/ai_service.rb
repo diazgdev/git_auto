@@ -202,7 +202,8 @@ module GitAuto
           temperature: temperature
         }
 
-        log_api_request("openai", payload, temperature) if ENV["DEBUG"]
+        # Uncomment the following line to see the API request and response details for debugging
+        # log_api_request("openai", payload, temperature) if ENV["DEBUG"]
 
         response = HTTP.auth("Bearer #{api_key}")
                       .headers(accept: "application/json")
@@ -266,15 +267,15 @@ module GitAuto
           ]
         }
 
-        log_api_request("claude", payload, temperature)
+        # Uncomment the following lines to see the API request and response details for debugging
+        # log_api_request("claude", payload, temperature)
+        # log_api_response(response.body)
 
         response = HTTP.headers({
                                 "Content-Type" => "application/json",
                                 "x-api-key" => api_key,
                                 "anthropic-version" => "2023-06-01"
                               }).post(CLAUDE_API_URL, json: payload)
-
-        log_api_response(response.body)
 
         message = handle_response(response)
         message = message.downcase.strip
@@ -300,26 +301,26 @@ module GitAuto
         case response.code
         when 200
           json = JSON.parse(response.body.to_s)
-          puts "Debug - API Response: #{json.inspect}"
+          # puts "Debug - API Response: #{json.inspect}"
           case @settings.get(:ai_provider)
           when "openai"
             message = json.dig("choices", 0, "message", "content")
             if message.nil? || message.empty?
-              puts "Debug - No content in response: #{json}"
+              # puts "Debug - No content in response: #{json}"
               raise Error, "No message content in response"
             end
             message.split("\n").first.strip
           when "claude"
             content = json.dig("content", 0, "text")
-            puts "Debug - Claude content: #{content.inspect}"
+            # puts "Debug - Claude content: #{content.inspect}"
 
             if content.nil? || content.empty?
-              puts "Debug - No content in response: #{json}"
+              # puts "Debug - No content in response: #{json}"
               raise Error, "No message content in response"
             end
 
             lines = content.split("\n").map(&:strip).reject(&:empty?)
-            puts "Debug - Lines: #{lines.inspect}"
+            # puts "Debug - Lines: #{lines.inspect}"
 
             message = lines.first
 

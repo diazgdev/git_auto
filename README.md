@@ -1,5 +1,7 @@
 # GitAuto 🤖✨
 
+[![Gem Version](https://badge.fury.io/rb/git_auto.svg)](https://rubygems.org/gems/git_auto)
+
 > AI-powered commit messages that make sense
 
 GitAuto is a Ruby gem that streamlines your git workflow by automatically generating meaningful commit messages using AI. Say goodbye to generic commit messages and hello to clear, consistent, and informative descriptions of your changes.
@@ -17,7 +19,19 @@ GitAuto is a Ruby gem that streamlines your git workflow by automatically genera
   - Anthropic (Claude 3.5 Sonnet, Claude 3.5 Haiku)
 - 🔒 **Secure Storage**: Your API keys are encrypted using AES-256-CBC and stored securely
 
+## Requirements ⚙️
+
+- Ruby >= 3.0.0
+- Git repository with staged changes
+- 🎟️ One magical ingredient: an API key! Choose your AI companion:
+  - 🔑 OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+  - 🗝️ Anthropic API key ([Get one here](https://console.anthropic.com/))
+
+That's it! Say goodbye to "misc fixes" and hello to commits that actually tell a story. Your future self will thank you! 🎩✨
+
 ## Installation 💎
+
+Install the gem from [RubyGems](https://rubygems.org/gems/git_auto):
 
 ```bash
 gem install git_auto
@@ -28,20 +42,6 @@ Or add to your Gemfile:
 ```ruby
 gem 'git_auto'
 ```
-
-## Usage 🛠️
-
-1. Stage your changes as usual:
-```bash
-git add .
-```
-
-2. Generate a commit message:
-```bash
-git-auto commit
-```
-
-3. Review, edit if needed, and confirm!
 
 ## Setup and Configuration 🔧
 
@@ -84,14 +84,25 @@ GitAuto can also be configured through environment variables:
 - `GIT_AUTO_MODEL`: OpenAI model to use (default: gpt-3.5-turbo)
 - `GIT_AUTO_SECRET`: Custom encryption key for storing API keys (optional)
 
-## Requirements ⚙️
+## Usage 🛠️
 
-- Ruby >= 3.0.0
-- Git repository with staged changes
+1. Stage your changes as usual:
+```bash
+git add .
+```
+
+2. Generate a commit message:
+```bash
+git-auto commit
+```
+
+3. Review, edit if needed, and confirm!
 
 ## Screenshots 📸
 
-*Coming soon...*
+![GitAuto Setup](./screenshots/setup.png)
+![GitAuto Config](./screenshots/config.png)
+![GitAuto Commit](./screenshots/commit.png)
 
 ## Roadmap 🗺️
 
