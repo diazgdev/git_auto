@@ -67,7 +67,7 @@ module GitAuto
       private
 
       def ensure_config_dir
-        FileUtils.mkdir_p(CONFIG_DIR) unless Dir.exist?(CONFIG_DIR)
+        FileUtils.mkdir_p(CONFIG_DIR)
       end
 
       def load_settings
@@ -83,13 +83,13 @@ module GitAuto
           raise Error, "Unsupported AI provider: #{options[:ai_provider]}"
         end
 
-        if options[:ai_model]
-          provider = options[:ai_provider] || @settings[:ai_provider]
-          valid_models = SUPPORTED_PROVIDERS[provider][:models].values
-          unless valid_models.include?(options[:ai_model])
-            raise Error, "Unsupported AI model: #{options[:ai_model]}"
-          end
-        end
+        return unless options[:ai_model]
+
+        provider = options[:ai_provider] || @settings[:ai_provider]
+        valid_models = SUPPORTED_PROVIDERS[provider][:models].values
+        return if valid_models.include?(options[:ai_model])
+
+        raise Error, "Unsupported AI model: #{options[:ai_model]}"
       end
     end
   end

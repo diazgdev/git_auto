@@ -20,6 +20,12 @@ module GitAuto
         "revert" => "Reverts a previous commit"
       }.freeze
 
+      MINIMAL_COMMIT_PATTERN = /
+        ^(?<type>#{TYPES.keys.join("|")})           # Commit type
+        :\s                                         # Colon and space separator
+        (?<description>.+)                          # Commit description
+      /x
+
       CONVENTIONAL_COMMIT_PATTERN = %r{
         ^(?<type>#{TYPES.keys.join("|")})           # Commit type
         (\((?<scope>[a-z0-9/_-]+)\))?               # Optional scope in parentheses
@@ -71,12 +77,12 @@ module GitAuto
 
         errors << "Header exceeds #{HEADER_MAX_LENGTH} characters" if header.length > HEADER_MAX_LENGTH
 
-        # Validate header format for conventional commits
-        valid_types = TYPES.keys.join('|')
-        pattern = %r{^(?:#{valid_types})\([a-z0-9/_-]+\)?: .+$}
+        # Validate header format for conventional and minimal commits
+        minimal_pattern = MINIMAL_COMMIT_PATTERN
+        conventional_pattern = CONVENTIONAL_COMMIT_PATTERN
 
-        unless pattern.match?(header)
-          errors << "Header must follow conventional commit format: <type>(<scope>): <description>"
+        unless minimal_pattern.match?(header) || conventional_pattern.match?(header)
+          errors << "Header must follow either minimal format: <type>: <description> or conventional format: <type>(<scope>): <description>"
         end
 
         # Suggest using lowercase for consistency

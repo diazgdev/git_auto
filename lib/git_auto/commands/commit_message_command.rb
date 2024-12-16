@@ -131,7 +131,11 @@ module GitAuto
       end
 
       def display_message_and_validation(formatted_message, validation)
-        puts "\n📝 Generated commit message:".blue
+        provider = @settings.get(:ai_provider)
+        model = @settings.get(:ai_model)
+        model_info = "(#{provider}/#{model})".light_black
+
+        puts "\n📝 Generated commit message #{model_info}:".blue
         puts formatted_message
 
         display_validation_errors(validation[:errors]) if validation[:errors].any?

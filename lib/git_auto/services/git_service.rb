@@ -26,7 +26,7 @@ module GitAuto
 
       def get_commit_history(limit = nil)
         validate_git_repository!
-        format = '%H%n%s%n%an%n%aI'
+        format = "%H%n%s%n%an%n%aI"
         command = ["log", "--pretty=format:#{format}", "--no-merges"]
         command << "-#{limit}" if limit
 
@@ -55,20 +55,23 @@ module GitAuto
       private
 
       def validate_git_repository!
-        unless File.directory?(".git")
-          raise Error, "Not a git repository (or any of the parent directories)"
-        end
+        return if File.directory?(".git")
+
+        raise Error, "Not a git repository (or any of the parent directories)"
       end
 
       def validate_staged_changes!
-        unless has_staged_changes?
-          raise Error, "No changes staged for commit"
-        end
+        return if has_staged_changes?
+
+        raise Error, "No changes staged for commit"
       end
 
       def has_staged_changes?
-        !execute_git_command("diff", "--cached", "--quiet")
-        $CHILD_STATUS.exitstatus == 1
+        # git diff --cached --quiet returns:
+        # - exit status 0 (success) if there are no changes
+        # - exit status 1 (failure) if there are changes
+        system("git diff --cached --quiet")
+        !$CHILD_STATUS.success?
       end
 
       def is_clean?
@@ -85,9 +88,7 @@ module GitAuto
       def execute_git_command(*args)
         output = IO.popen(["git", *args], err: [:child, :out], &:read)
 
-        unless $CHILD_STATUS.success?
-          raise Error, "Git command failed: git #{args.join(' ')}\n#{output}"
-        end
+        raise Error, "Git command failed: git #{args.join(" ")}\n#{output}" unless $CHILD_STATUS.success?
 
         output
       end

@@ -37,11 +37,11 @@ RSpec.describe GitAuto::Commands::CommitMessageCommand do
 
     # Handle analyze_patterns call
     allow(history_service).to receive(:analyze_patterns).and_return({
-      scopes: { "ui" => 2, "api" => 1 },
-      styles: { "conventional" => 100.0 },
-      types: { "feat" => 50.0, "fix" => 25.0 },
-      common_phrases: { "add button" => 1 }
-    })
+                                                                      scopes: { "ui" => 2, "api" => 1 },
+                                                                      styles: { "conventional" => 100.0 },
+                                                                      types: { "feat" => 50.0, "fix" => 25.0 },
+                                                                      common_phrases: { "add button" => 1 }
+                                                                    })
 
     # Add this line to handle save_commit
     allow(history_service).to receive(:save_commit)
@@ -56,9 +56,7 @@ RSpec.describe GitAuto::Commands::CommitMessageCommand do
     let(:commit_message) { "feat: add new feature" }
 
     before do
-      allow(git_service).to receive(:repository_status).and_return(repository_status)
-      allow(git_service).to receive(:get_staged_diff).and_return(diff)
-      allow(git_service).to receive(:get_staged_files).and_return(["file1.rb"])
+      allow(git_service).to receive_messages(repository_status: repository_status, get_staged_diff: diff, get_staged_files: ["file1.rb"])
       allow(ai_service).to receive(:generate_commit_message).and_return(commit_message)
       allow(prompt).to receive(:select).and_return(:accept)
       allow(git_service).to receive(:commit)
@@ -76,8 +74,8 @@ RSpec.describe GitAuto::Commands::CommitMessageCommand do
 
         # Set up the minimal stubs needed
         allow(git_service).to receive(:repository_status).and_return({ is_clean: true, has_staged_changes: false })
-        allow($stderr).to receive(:puts)  # Suppress error output
-        allow(git_service).to receive(:get_staged_diff).never  # This should never be called
+        allow($stderr).to receive(:puts) # Suppress error output
+        allow(git_service).not_to receive(:get_staged_diff) # This should never be called
       end
 
       it "exits with error" do

@@ -151,6 +151,7 @@ module GitAuto
 
       def configure_commit_style
         style = @prompt.select("Choose commit message style:", {
+                                 "Minimal (type: description)" => "minimal",
                                  "Conventional (type(scope): description)" => "conventional",
                                  "Simple (description only)" => "simple"
                                })

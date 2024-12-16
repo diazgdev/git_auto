@@ -39,15 +39,15 @@ RSpec.describe GitAuto::Config::Settings do
     end
 
     it "validates settings before saving" do
-      expect {
+      expect do
         config.save(ai_provider: "invalid_provider")
-      }.to raise_error(GitAuto::Config::Settings::Error)
+      end.to raise_error(GitAuto::Config::Settings::Error)
     end
 
     it "handles invalid model for provider" do
-      expect {
+      expect do
         config.save(ai_provider: "openai", ai_model: "invalid-model")
-      }.to raise_error(GitAuto::Config::Settings::Error)
+      end.to raise_error(GitAuto::Config::Settings::Error)
     end
   end
 

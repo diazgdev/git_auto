@@ -66,17 +66,27 @@ module GitAuto
       end
 
       def get_system_prompt(style, retry_attempt = 0)
-        base_prompt = case style
-          when "conventional"
-            "You are an expert in writing conventional commit messages..."
-          else
-            "You are an expert in writing clear and concise git commit messages..."
-          end
+        base_prompt = case style.to_s
+                      when "minimal"
+                        "You are an expert in writing minimal commit messages that follow the format: <type>: <description>\n" \
+                        "Rules:\n" \
+                        "1. ALWAYS start with a type from the list above\n" \
+                        "2. NEVER include a scope\n" \
+                        "3. Keep the message under 72 characters\n" \
+                        "4. Use lowercase\n" \
+                        "5. Use present tense\n" \
+                        "6. Be descriptive but concise\n" \
+                        "7. Do not include a period at the end"
+                      when "conventional"
+                        "You are an expert in writing conventional commit messages..."
+                      else
+                        "You are an expert in writing clear and concise git commit messages..."
+                      end
 
         # Add variation for retries
-        if retry_attempt > 0
+        if retry_attempt.positive?
           base_prompt += "\nPlease provide a different perspective or approach than previous attempts."
-          base_prompt += "\nBe more #{%w[specific detailed creative concise].sample} in this attempt."
+          base_prompt += "\nBe more #{["specific", "detailed", "creative", "concise"].sample} in this attempt."
         end
 
         base_prompt
@@ -110,14 +120,30 @@ module GitAuto
         # If diff is too large, use the summarized version
         diff = @diff_summarizer.summarize(diff) if diff.length > MAX_DIFF_SIZE
 
-        if style == "conventional" && scope.nil?
+        if style.to_s == "minimal"
+          message = case @settings.get(:ai_provider)
+                    when "openai"
+                      generate_openai_commit_message(diff, style)
+                    when "claude"
+                      generate_claude_commit_message(diff, style)
+                    end
+
+          # Extract type and description from the message
+          if message =~ /^(\w+):\s*(.+)$/
+            type = ::Regexp.last_match(1)
+            description = ::Regexp.last_match(2)
+            return "#{type}: #{description}"
+          end
+
+          return message
+        elsif style.to_s == "conventional" && scope.nil?
           # Generate both scope and message in one call
           message = case @settings.get(:ai_provider)
-                   when "openai"
-                     generate_openai_commit_message(diff, style)
-                   when "claude"
-                     generate_claude_commit_message(diff, style)
-                   end
+                    when "openai"
+                      generate_openai_commit_message(diff, style)
+                    when "claude"
+                      generate_claude_commit_message(diff, style)
+                    end
 
           # Extract type and scope from the message
           if message =~ /^(\w+)(?:\(([\w-]+)\))?:\s*(.+)$/
@@ -174,24 +200,41 @@ module GitAuto
 
         # Only use temperature variations for retries
         temperature = retry_attempt ? get_temperature(retry_attempt) : TEMPERATURE_VARIATIONS[0][:openai]
-        commit_types = %w[feat fix docs style refactor test chore perf ci build revert].join('|')
+        commit_types = ["feat", "fix", "docs", "style", "refactor", "test", "chore", "perf", "ci", "build",
+                        "revert"].join("|")
 
-        system_message = "You are a commit message generator that MUST follow the conventional commit format: <type>(<scope>): <description>\n" \
-                        "Valid types are: #{commit_types}\n" \
-                        "Rules:\n" \
-                        "1. ALWAYS start with a type from the list above\n" \
-                        "2. ALWAYS use the exact format <type>(<scope>): <description>\n" \
-                        "3. Keep the message under 72 characters\n" \
-                        "4. Use lowercase\n" \
-                        "5. Use present tense\n" \
-                        "6. Be descriptive but concise\n" \
-                        "7. Do not include a period at the end"
+        system_message = case style.to_s
+                         when "minimal"
+                           "You are a commit message generator that MUST follow the minimal commit format: <type>: <description>\n" \
+                           "Valid types are: #{commit_types}\n" \
+                           "Rules:\n" \
+                           "1. ALWAYS start with a type from the list above\n" \
+                           "2. NEVER include a scope\n" \
+                           "3. Keep the message under 72 characters\n" \
+                           "4. Use lowercase\n" \
+                           "5. Use present tense\n" \
+                           "6. Be descriptive but concise\n" \
+                           "7. Do not include a period at the end"
+                         when "conventional"
+                           "You are a commit message generator that MUST follow the conventional commit format: <type>(<scope>): <description>\n" \
+                           "Valid types are: #{commit_types}\n" \
+                           "Rules:\n" \
+                           "1. ALWAYS start with a type from the list above\n" \
+                           "2. ALWAYS use the exact format <type>(<scope>): <description>\n" \
+                           "3. Keep the message under 72 characters\n" \
+                           "4. Use lowercase\n" \
+                           "5. Use present tense\n" \
+                           "6. Be descriptive but concise\n" \
+                           "7. Do not include a period at the end"
+                         else
+                           "You are an expert in writing clear and concise git commit messages..."
+                         end
 
         user_message = if scope
-                        "Generate a conventional commit message with scope '#{scope}' for this diff:\n\n#{diff}"
-                      else
-                        "Generate a conventional commit message for this diff:\n\n#{diff}"
-                      end
+                         "Generate a conventional commit message with scope '#{scope}' for this diff:\n\n#{diff}"
+                       else
+                         "Generate a #{style} commit message for this diff:\n\n#{diff}"
+                       end
 
         payload = {
           model: @settings.get(:ai_model),
@@ -206,8 +249,8 @@ module GitAuto
         # log_api_request("openai", payload, temperature) if ENV["DEBUG"]
 
         response = HTTP.auth("Bearer #{api_key}")
-                      .headers(accept: "application/json")
-                      .post(OPENAI_API_URL, json: payload)
+          .headers(accept: "application/json")
+          .post(OPENAI_API_URL, json: payload)
 
         handle_response(response)
       end
@@ -218,33 +261,40 @@ module GitAuto
 
         # Only use temperature variations for retries
         temperature = retry_attempt ? get_temperature(retry_attempt) : TEMPERATURE_VARIATIONS[0][:claude]
-        prompt = retry_attempt ? get_system_prompt(style, retry_attempt) : get_system_prompt(style)
+        commit_types = ["feat", "fix", "docs", "style", "refactor", "test", "chore", "perf", "ci", "build",
+                        "revert"].join("|")
 
-        commit_types = %w[feat fix docs style refactor test chore perf ci build revert].join('|')
+        system_message = case style.to_s
+                         when "minimal"
+                           "You are a commit message generator that MUST follow the minimal commit format: <type>: <description>\n" \
+                           "Valid types are: #{commit_types}\n" \
+                           "Rules:\n" \
+                           "1. ALWAYS start with a type from the list above\n" \
+                           "2. NEVER include a scope\n" \
+                           "3. Keep the message under 72 characters\n" \
+                           "4. Use lowercase\n" \
+                           "5. Use present tense\n" \
+                           "6. Be descriptive but concise\n" \
+                           "7. Do not include a period at the end"
+                         when "conventional"
+                           "You are a commit message generator that MUST follow the conventional commit format: <type>(<scope>): <description>\n" \
+                           "Valid types are: #{commit_types}\n" \
+                           "Rules:\n" \
+                           "1. ALWAYS start with a type from the list above\n" \
+                           "2. ALWAYS use the exact format <type>(<scope>): <description>\n" \
+                           "3. Keep the message under 72 characters\n" \
+                           "4. Use lowercase\n" \
+                           "5. Use present tense\n" \
+                           "6. Be descriptive but concise\n" \
+                           "7. Do not include a period at the end"
+                         else
+                           "You are an expert in writing clear and concise git commit messages..."
+                         end
+
         user_message = if scope
-                         "Generate ONLY a conventional commit message for this diff. The message MUST start with one of these types: #{commit_types}\n\n" \
-                         "Format: <type>: <description>\n" \
-                         "Example: feat: add user authentication\n\n" \
-                         "Rules:\n" \
-                         "1. Keep the commit message under 72 characters\n" \
-                         "2. Use lowercase\n" \
-                         "3. Use present tense\n" \
-                         "4. Make it unique and different from previous suggestions\n" \
-                         "5. MUST start with one of the valid types followed by a colon\n\n" \
-                         "Here's the diff:\n#{diff}" +
-                           previous_suggestions_prompt
+                         "Generate a conventional commit message with scope '#{scope}' for this diff:\n\n#{diff}"
                        else
-                         "Generate ONLY a conventional commit message for this diff. The message MUST start with one of these types: #{commit_types}\n\n" \
-                         "Format: <type>: <description>\n" \
-                         "Example: feat: add user authentication\n\n" \
-                         "Rules:\n" \
-                         "1. Keep the commit message under 72 characters\n" \
-                         "2. Use lowercase\n" \
-                         "3. Use present tense\n" \
-                         "4. Make it unique and different from previous suggestions\n" \
-                         "5. MUST start with one of the valid types followed by a colon\n\n" \
-                         "Here's the diff:\n#{diff}" +
-                           previous_suggestions_prompt
+                         "Generate a #{style} commit message for this diff:\n\n#{diff}"
                        end
 
         payload = {
@@ -253,7 +303,7 @@ module GitAuto
           temperature: temperature,
           top_k: 50,
           top_p: 0.9,
-          system: prompt,
+          system: system_message,
           messages: [
             {
               role: "user",
@@ -272,10 +322,10 @@ module GitAuto
         # log_api_response(response.body)
 
         response = HTTP.headers({
-                                "Content-Type" => "application/json",
-                                "x-api-key" => api_key,
-                                "anthropic-version" => "2023-06-01"
-                              }).post(CLAUDE_API_URL, json: payload)
+                                  "Content-Type" => "application/json",
+                                  "x-api-key" => api_key,
+                                  "anthropic-version" => "2023-06-01"
+                                }).post(CLAUDE_API_URL, json: payload)
 
         message = handle_response(response)
         message = message.downcase.strip
@@ -292,6 +342,8 @@ module GitAuto
           "simple commit message"
         when :scope, "scope"
           "commit scope suggestion"
+        when :minimal, "minimal"
+          "minimal commit message"
         else
           "commit message"
         end
@@ -309,6 +361,7 @@ module GitAuto
               # puts "Debug - No content in response: #{json}"
               raise Error, "No message content in response"
             end
+
             message.split("\n").first.strip
           when "claude"
             content = json.dig("content", 0, "text")
@@ -324,9 +377,7 @@ module GitAuto
 
             message = lines.first
 
-            if message.nil? || !message.match?(/^[a-z]+:/)
-              raise Error, "No valid commit message found in response"
-            end
+            raise Error, "No valid commit message found in response" if message.nil? || !message.match?(/^[a-z]+:/)
 
             message
           end
@@ -348,18 +399,18 @@ module GitAuto
       end
 
       def infer_scope_from_diff(diff)
-        files = diff.scan(/^diff --git.*?b\/(.+)$/).flatten
+        files = diff.scan(%r{^diff --git.*?b/(.+)$}).flatten
         return nil if files.empty?
 
         scopes = files.map do |file|
-          parts = file.split('/')
+          parts = file.split("/")
           if parts.length > 1
             parts.first
           else
-            basename = File.basename(file, '.*')
+            basename = File.basename(file, ".*")
 
             if basename =~ /^(.*?)\d*$/
-              $1
+              ::Regexp.last_match(1)
             else
               basename
             end
@@ -367,19 +418,19 @@ module GitAuto
         end.compact
 
         # Filter out overly generic scopes
-        scopes.reject! { |s| %w[rb js py ts css html md].include?(s) }
+        scopes.reject! { |s| ["rb", "js", "py", "ts", "css", "html", "md"].include?(s) }
         return nil if scopes.empty?
 
         # Return the most common scope
         scope = scopes.group_by(&:itself)
-                     .max_by { |_, group| group.length }
-                     &.first
+          .max_by { |_, group| group.length }
+          &.first
 
         # Convert to snake_case if needed
         scope&.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
-             &.gsub(/([a-z\d])([A-Z])/, '\1_\2')
-             &.tr('-', '_')
-             &.downcase
+          &.gsub(/([a-z\d])([A-Z])/, '\1_\2')
+          &.tr("-", "_")
+          &.downcase
       end
     end
   end

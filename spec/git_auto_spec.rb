@@ -7,8 +7,8 @@ RSpec.describe GitAuto do
 
   describe ".root" do
     it "returns the root directory path" do
-      expect(GitAuto.root).to be_a(String)
-      expect(File.directory?(GitAuto.root)).to be true
+      expect(described_class.root).to be_a(String)
+      expect(File.directory?(described_class.root)).to be true
     end
   end
 
@@ -26,18 +26,18 @@ RSpec.describe GitAuto do
     end
 
     it "creates the config directory" do
-      GitAuto.install
+      described_class.install
       expect(File.directory?(@config_dir)).to be true
     end
   end
 
   describe ".uninstall" do
     before do
-      GitAuto.install # Ensure config directory exists
+      described_class.install # Ensure config directory exists
     end
 
     it "removes the config directory" do
-      GitAuto.uninstall
+      described_class.uninstall
       expect(File.directory?(GitAuto::Config::Settings::CONFIG_DIR)).to be false
     end
   end

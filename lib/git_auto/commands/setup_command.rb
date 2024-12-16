@@ -87,6 +87,7 @@ module GitAuto
         @prompt.select(
           "Select default commit message style:",
           [
+            { name: "Minimal (type: subject)", value: "minimal" },
             { name: "Conventional (type(scope): description)", value: "conventional" },
             { name: "Simple (verb + description)", value: "simple" },
             { name: "Detailed (summary + bullet points)", value: "detailed" }
