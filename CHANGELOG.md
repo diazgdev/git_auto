@@ -1,4 +1,4 @@
-## [0.2.0] - 2024-01-03
+## [0.2.0] - 2024-12-15
 
 ### Added
 - New "Minimal" commit message style option for more concise commits
