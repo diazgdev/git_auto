@@ -1,16 +1,38 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.2.1] - 2024-12-19
+
+### Fixed
+- Improve Claude AI response handling for conventional commit messages
+- Make system prompts more explicit to ensure consistent output format
+- Fixed error when displaying repository status with no staged files
+- Improved error handling in repository status display
+
+### Changed
+- Update system prompts to be more strict and specific
+- Enhance commit message validation for Claude responses
+
 ## [0.2.0] - 2024-12-15
 
 ### Added
-- New "Minimal" commit message style option for more concise commits
-- Display of AI model used in commit message generation for better transparency
-
-### Fixed
-- Improved Git staged changes detection for more reliable operation
-- Improved commit message validation for both minimal and conventional formats
+- Support for multiple AI providers (OpenAI and Anthropic)
+- New commit message styles (minimal, conventional, simple)
+- Commit history analysis
+- Pattern detection for commit types and scopes
+- Secure API key storage with encryption
 
 ### Changed
-- Updated AI service integration to support minimal commit style across OpenAI and Claude
-- Improved error handling and user feedback during Git operations
+- Improved error messages and validation
+- Enhanced diff formatting and preview
+- Better handling of commit message generation
+
+### Fixed
+- Various bug fixes and performance improvements
 
 ## [0.1.1] - 2024-12-13
 

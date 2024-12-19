@@ -156,19 +156,19 @@ module GitAuto
                                  "Simple (description only)" => "simple"
                                })
 
-        @settings.set(:commit_style, style)
+        @settings.save(commit_style: style)
         puts "✓ Commit style updated to #{style}".green
       end
 
       def configure_preferences
         show_diff = @prompt.yes?("Show diff before committing?")
-        @settings.set(:show_diff, show_diff)
+        @settings.save(show_diff: show_diff)
         puts "✓ Show diff preference updated".green
       end
 
       def configure_history_settings
         save_history = @prompt.yes?("Save commit history for analysis?")
-        @settings.set(:save_history, save_history)
+        @settings.save(save_history: save_history)
         puts "✓ History settings updated".green
       end
     end

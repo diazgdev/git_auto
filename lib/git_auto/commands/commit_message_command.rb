@@ -51,8 +51,7 @@ module GitAuto
         return if status[:has_staged_changes]
 
         puts "ℹ️  Status:".blue
-        puts "  Branch: #{status[:branch]}"
-        puts "  Staged files: #{status[:staged_files].join(", ")}"
+        puts "  No changes staged for commit"
         puts "\n❌ No changes staged for commit. Use 'git add' to stage changes.".red
         exit 1
       end

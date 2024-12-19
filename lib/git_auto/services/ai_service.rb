@@ -216,16 +216,17 @@ module GitAuto
                            "6. Be descriptive but concise\n" \
                            "7. Do not include a period at the end"
                          when "conventional"
-                           "You are a commit message generator that MUST follow the conventional commit format: <type>(<scope>): <description>\n" \
-                           "Valid types are: #{commit_types}\n" \
-                           "Rules:\n" \
-                           "1. ALWAYS start with a type from the list above\n" \
-                           "2. ALWAYS use the exact format <type>(<scope>): <description>\n" \
-                           "3. Keep the message under 72 characters\n" \
-                           "4. Use lowercase\n" \
-                           "5. Use present tense\n" \
-                           "6. Be descriptive but concise\n" \
-                           "7. Do not include a period at the end"
+                           "You are a commit message generator that MUST follow these rules EXACTLY:\n" \
+                           "1. ONLY output a single line containing the commit message\n" \
+                           "2. Use format: <type>(<scope>): <description>\n" \
+                           "3. Valid types are: #{commit_types}\n" \
+                           "4. Keep under 72 characters\n" \
+                           "5. Use lowercase\n" \
+                           "6. Use present tense\n" \
+                           "7. Be descriptive but concise\n" \
+                           "8. No period at the end\n" \
+                           "9. NO explanations or additional text\n" \
+                           "10. NO markdown formatting"
                          else
                            "You are an expert in writing clear and concise git commit messages..."
                          end
@@ -277,16 +278,17 @@ module GitAuto
                            "6. Be descriptive but concise\n" \
                            "7. Do not include a period at the end"
                          when "conventional"
-                           "You are a commit message generator that MUST follow the conventional commit format: <type>(<scope>): <description>\n" \
-                           "Valid types are: #{commit_types}\n" \
-                           "Rules:\n" \
-                           "1. ALWAYS start with a type from the list above\n" \
-                           "2. ALWAYS use the exact format <type>(<scope>): <description>\n" \
-                           "3. Keep the message under 72 characters\n" \
-                           "4. Use lowercase\n" \
-                           "5. Use present tense\n" \
-                           "6. Be descriptive but concise\n" \
-                           "7. Do not include a period at the end"
+                           "You are a commit message generator that MUST follow these rules EXACTLY:\n" \
+                           "1. ONLY output a single line containing the commit message\n" \
+                           "2. Use format: <type>(<scope>): <description>\n" \
+                           "3. Valid types are: #{commit_types}\n" \
+                           "4. Keep under 72 characters\n" \
+                           "5. Use lowercase\n" \
+                           "6. Use present tense\n" \
+                           "7. Be descriptive but concise\n" \
+                           "8. No period at the end\n" \
+                           "9. NO explanations or additional text\n" \
+                           "10. NO markdown formatting"
                          else
                            "You are an expert in writing clear and concise git commit messages..."
                          end
@@ -353,7 +355,8 @@ module GitAuto
         case response.code
         when 200
           json = JSON.parse(response.body.to_s)
-          # puts "Debug - API Response: #{json.inspect}"
+          puts "\nDebug - API Response: #{json.inspect}"
+
           case @settings.get(:ai_provider)
           when "openai"
             message = json.dig("choices", 0, "message", "content")
@@ -362,7 +365,9 @@ module GitAuto
               raise Error, "No message content in response"
             end
 
+            # puts "Debug - OpenAI message: #{message}"
             message.split("\n").first.strip
+
           when "claude"
             content = json.dig("content", 0, "text")
             # puts "Debug - Claude content: #{content.inspect}"
@@ -372,14 +377,16 @@ module GitAuto
               raise Error, "No message content in response"
             end
 
-            lines = content.split("\n").map(&:strip).reject(&:empty?)
-            # puts "Debug - Lines: #{lines.inspect}"
+            # Extract the first actual commit message from the response
+            commit_message = content.scan(/(?:feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(?:\([^)]+\))?:.*/)&.first
 
-            message = lines.first
+            if commit_message.nil?
+              # puts "Debug - No valid commit message pattern found in content"
+              raise Error, "No valid commit message found in response"
+            end
 
-            raise Error, "No valid commit message found in response" if message.nil? || !message.match?(/^[a-z]+:/)
-
-            message
+            # puts "Debug - Extracted commit message: #{commit_message}"
+            commit_message.strip
           end
         when 401
           raise APIKeyError, "Invalid API key" unless ENV["RACK_ENV"] == "test"
