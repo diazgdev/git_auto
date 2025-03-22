@@ -13,3 +13,6 @@
 # test files
 /test_project/
 test_keys.md
+
+# build artifacts
+*.gem
