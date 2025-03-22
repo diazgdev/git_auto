@@ -19,6 +19,7 @@ module GitAuto
         @git_service = Services::GitService.new
         @ai_service = Services::AIService.new(@settings)
         @history_service = Services::HistoryService.new
+        @validator = Validators::CommitMessageValidator.new(get_commit_style)
         @retry_count = 0
       end
 
@@ -27,8 +28,11 @@ module GitAuto
         status = @git_service.repository_status
         validate_repository(status)
 
+        # Get staged files
+        staged_files = @git_service.get_staged_files
+
         # Get and validate changes
-        diff = @git_service.get_staged_diff
+        diff = @git_service.get_staged_diff(staged_files)
         validate_changes(diff)
 
         # Show diff preview if requested
@@ -112,6 +116,24 @@ module GitAuto
         message
       end
 
+      # Message Validation Methods
+      def validate_message(message)
+        result = @validator.validate(message)
+
+        if result[:errors].any?
+          puts "\n❌ Validation errors:".red
+          result[:errors].each { |error| puts @validator.format_error(error) }
+        end
+
+        if result[:warnings].any?
+          puts "\n⚠️  Suggestions:".yellow
+          result[:warnings].each { |warning| puts @validator.format_warning(warning) }
+        end
+
+        puts "\nPlease edit the message to fix these errors." if result[:errors].any?
+        result
+      end
+
       # Message Handling Methods
       def handle_message(message, diff)
         formatted = Formatters::MessageFormatter.new.format(message)
@@ -124,37 +146,23 @@ module GitAuto
         end
       end
 
-      def validate_message(message)
-        validator = Validators::CommitMessageValidator.new
-        validator.validate(message)
-      end
-
       def display_message_and_validation(formatted_message, validation)
-        provider = @settings.get(:ai_provider)
-        model = @settings.get(:ai_model)
-        model_info = "(#{provider}/#{model})".light_black
-
-        puts "\n📝 Generated commit message #{model_info}:".blue
+        puts "\n📝 Generated commit message (#{@settings.get(:ai_provider)}/#{@settings.get(:ai_model)}):".blue
         puts formatted_message
 
-        display_validation_errors(validation[:errors]) if validation[:errors].any?
+        return unless validation[:errors].any? || validation[:warnings].any?
 
-        return unless validation[:warnings].any?
+        if validation[:errors].any?
+          puts "\n❌ Validation errors:".red
+          validation[:errors].each { |error| puts @validator.format_error(error) }
+        end
 
-        display_validation_warnings(validation[:warnings])
-      end
+        if validation[:warnings].any?
+          puts "\n⚠️  Suggestions:".yellow
+          validation[:warnings].each { |warning| puts @validator.format_warning(warning) }
+        end
 
-      def display_validation_errors(errors)
-        puts "\n❌ Validation errors:".red
-        validator = Validators::CommitMessageValidator.new
-        errors.each { |error| puts validator.format_error(error) }
-        puts "\nPlease edit the message to fix these errors.".yellow
-      end
-
-      def display_validation_warnings(warnings)
-        puts "\n⚠️  Suggestions:".yellow
-        validator = Validators::CommitMessageValidator.new
-        warnings.each { |warning| puts validator.format_warning(warning) }
+        puts "\nPlease edit the message to fix these errors." if validation[:errors].any?
       end
 
       def prompt_user_action

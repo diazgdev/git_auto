@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-03-22
+
+### Fixed
+- Fixed API key storage in credential store when using `config set` command
+- Fixed commit message validation to properly handle different styles (conventional, minimal, simple, detailed)
+- Extended conventional commit scope pattern to allow dots in file names (e.g., `index.js`)
+- Improved AI prompts to consistently generate lowercase commit messages
+
+### Added
+- Enhanced detailed commit style to include multi-line messages with:
+  - Concise summary line
+  - Detailed bullet points explaining changes
+  - Technical context and reasoning
+
 ## [0.2.1] - 2024-12-19
 
 ### Fixed

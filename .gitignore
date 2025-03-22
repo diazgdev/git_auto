@@ -9,3 +9,7 @@
 
 # rspec failure tracking
 .rspec_status
+
+# test files
+/test_project/
+test_keys.md

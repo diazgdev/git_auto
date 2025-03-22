@@ -58,8 +58,17 @@ module GitAuto
           exit 1
         end
 
-        @settings.set(key.to_sym, value)
-        puts "✓ Setting '#{key}' updated to '#{value}'".green
+        case key.to_s
+        when "openai_api_key"
+          @credential_store.store_api_key(value, "openai")
+          puts "✓ OpenAI API key updated".green
+        when "claude_api_key"
+          @credential_store.store_api_key(value, "claude")
+          puts "✓ Claude API key updated".green
+        else
+          @settings.set(key.to_sym, value)
+          puts "✓ Setting '#{key}' updated to '#{value}'".green
+        end
       end
 
       def interactive_config

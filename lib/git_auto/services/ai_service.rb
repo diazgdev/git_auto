@@ -39,10 +39,13 @@ module GitAuto
         @@temperature ||= TEMPERATURE_VARIATIONS[0]
         @request_count = 0
         @previous_suggestions = []
+        @debug_mode = ENV["GIT_AUTO_DEBUG"] == "true"
       end
 
       def log_api_request(provider, payload, temperature)
-        puts "\n=== API Request ##{@request_count += 1} ==="
+        return unless @debug_mode
+
+        puts "\n=== API Request ##{@request_count += 1} ===".yellow
         puts "Provider: #{provider}"
         puts "Temperature: #{temperature}"
         puts "Full Payload:"
@@ -51,7 +54,9 @@ module GitAuto
       end
 
       def log_api_response(response_body)
-        puts "\n=== API Response ==="
+        return unless @debug_mode
+
+        puts "\n=== API Response ===".yellow
         puts JSON.pretty_generate(JSON.parse(response_body.to_s))
         puts "===================="
       end
@@ -73,14 +78,45 @@ module GitAuto
                         "1. ALWAYS start with a type from the list above\n" \
                         "2. NEVER include a scope\n" \
                         "3. Keep the message under 72 characters\n" \
-                        "4. Use lowercase\n" \
+                        "4. ALWAYS use lowercase - this is mandatory\n" \
                         "5. Use present tense\n" \
                         "6. Be descriptive but concise\n" \
                         "7. Do not include a period at the end"
                       when "conventional"
-                        "You are an expert in writing conventional commit messages..."
+                        "You are an expert in writing conventional commit messages that follow the format: <type>(<scope>): <description>\n" \
+                        "Rules:\n" \
+                        "1. ALWAYS start with a type from the list above\n" \
+                        "2. Include a scope in parentheses when relevant\n" \
+                        "3. Keep the message under 72 characters\n" \
+                        "4. ALWAYS use lowercase - this is mandatory\n" \
+                        "5. Use present tense\n" \
+                        "6. Be descriptive but concise\n" \
+                        "7. Do not include a period at the end"
+                      when "detailed"
+                        "You are an expert in writing detailed commit messages. Your message MUST follow this format:\n" \
+                        "<summary line>\n" \
+                        "\n" \
+                        "<detailed description>\n" \
+                        "\n" \
+                        "Rules:\n" \
+                        "1. First line is a summary under 72 characters\n" \
+                        "2. ALWAYS use lowercase - this is mandatory\n" \
+                        "3. ALWAYS include a blank line after the summary\n" \
+                        "4. ALWAYS include a detailed description explaining:\n" \
+                        "   - What changes were made\n" \
+                        "   - Why the changes were necessary\n" \
+                        "   - Any technical details worth noting\n" \
+                        "5. Use bullet points for multiple changes\n" \
+                        "6. Use present tense\n" \
+                        "7. You can use periods in the detailed description"
                       else
-                        "You are an expert in writing clear and concise git commit messages..."
+                        "You are an expert in writing clear and concise git commit messages.\n" \
+                        "Rules:\n" \
+                        "1. Keep the message under 72 characters\n" \
+                        "2. ALWAYS use lowercase - this is mandatory\n" \
+                        "3. Use present tense\n" \
+                        "4. Be descriptive but concise\n" \
+                        "5. Do not include a period at the end"
                       end
 
         # Add variation for retries
@@ -115,50 +151,16 @@ module GitAuto
       end
 
       def generate_commit_message(diff, style: :conventional, scope: nil)
-        raise EmptyDiffError if diff.nil? || diff.strip.empty?
+        raise EmptyDiffError, "No changes to commit" if diff.empty?
 
         # If diff is too large, use the summarized version
-        diff = @diff_summarizer.summarize(diff) if diff.length > MAX_DIFF_SIZE
-
-        if style.to_s == "minimal"
-          message = case @settings.get(:ai_provider)
-                    when "openai"
-                      generate_openai_commit_message(diff, style)
-                    when "claude"
-                      generate_claude_commit_message(diff, style)
-                    end
-
-          # Extract type and description from the message
-          if message =~ /^(\w+):\s*(.+)$/
-            type = ::Regexp.last_match(1)
-            description = ::Regexp.last_match(2)
-            return "#{type}: #{description}"
-          end
-
-          return message
-        elsif style.to_s == "conventional" && scope.nil?
-          # Generate both scope and message in one call
-          message = case @settings.get(:ai_provider)
-                    when "openai"
-                      generate_openai_commit_message(diff, style)
-                    when "claude"
-                      generate_claude_commit_message(diff, style)
-                    end
-
-          # Extract type and scope from the message
-          if message =~ /^(\w+)(?:\(([\w-]+)\))?:\s*(.+)$/
-            type = ::Regexp.last_match(1)
-            existing_scope = ::Regexp.last_match(2)
-            description = ::Regexp.last_match(3)
-
-            # If we got a scope in the message, use it, otherwise generate one
-            scope ||= existing_scope || infer_scope_from_diff(diff)
-            return scope ? "#{type}(#{scope}): #{description}" : "#{type}: #{description}"
-          end
-
-          # If message doesn't match expected format, just return it as is
-          return message
+        if diff.length > MAX_DIFF_SIZE
+          puts "\n⚠️  Diff is large, using summarized version...".yellow if @debug_mode
+          diff = @diff_summarizer.summarize(diff)
         end
+
+        # Store the commit style in settings for use in handle_response
+        @settings.set(:commit_style, style.to_s)
 
         retries = 0
         begin
@@ -211,7 +213,7 @@ module GitAuto
                            "1. ALWAYS start with a type from the list above\n" \
                            "2. NEVER include a scope\n" \
                            "3. Keep the message under 72 characters\n" \
-                           "4. Use lowercase\n" \
+                           "4. ALWAYS use lowercase - this is mandatory\n" \
                            "5. Use present tense\n" \
                            "6. Be descriptive but concise\n" \
                            "7. Do not include a period at the end"
@@ -221,14 +223,39 @@ module GitAuto
                            "2. Use format: <type>(<scope>): <description>\n" \
                            "3. Valid types are: #{commit_types}\n" \
                            "4. Keep under 72 characters\n" \
-                           "5. Use lowercase\n" \
+                           "5. ALWAYS use lowercase - this is mandatory\n" \
                            "6. Use present tense\n" \
                            "7. Be descriptive but concise\n" \
                            "8. No period at the end\n" \
                            "9. NO explanations or additional text\n" \
                            "10. NO markdown formatting"
+                         when "detailed"
+                           "You are a commit message generator that MUST follow this format EXACTLY:\n" \
+                           "<summary line>\n" \
+                           "\n" \
+                           "<detailed description>\n" \
+                           "\n" \
+                           "Rules:\n" \
+                           "1. First line is a summary under 72 characters\n" \
+                           "2. ALWAYS use lowercase - this is mandatory\n" \
+                           "3. ALWAYS include a blank line after the summary\n" \
+                           "4. ALWAYS include a detailed description explaining:\n" \
+                           "   - What changes were made\n" \
+                           "   - Why the changes were necessary\n" \
+                           "   - Any technical details worth noting\n" \
+                           "5. Use bullet points for multiple changes\n" \
+                           "6. Use present tense\n" \
+                           "7. You can use periods in the detailed description\n" \
+                           "8. NO explanations or additional text\n" \
+                           "9. NO markdown formatting"
                          else
-                           "You are an expert in writing clear and concise git commit messages..."
+                           "You are an expert in writing clear and concise git commit messages.\n" \
+                           "Rules:\n" \
+                           "1. Keep the message under 72 characters\n" \
+                           "2. ALWAYS use lowercase - this is mandatory\n" \
+                           "3. Use present tense\n" \
+                           "4. Be descriptive but concise\n" \
+                           "5. Do not include a period at the end"
                          end
 
         user_message = if scope
@@ -246,12 +273,13 @@ module GitAuto
           temperature: temperature
         }
 
-        # Uncomment the following line to see the API request and response details for debugging
-        # log_api_request("openai", payload, temperature) if ENV["DEBUG"]
+        log_api_request("openai", payload, temperature) if @debug_mode
 
         response = HTTP.auth("Bearer #{api_key}")
           .headers(accept: "application/json")
           .post(OPENAI_API_URL, json: payload)
+
+        log_api_response(response.body) if @debug_mode
 
         handle_response(response)
       end
@@ -273,7 +301,7 @@ module GitAuto
                            "1. ALWAYS start with a type from the list above\n" \
                            "2. NEVER include a scope\n" \
                            "3. Keep the message under 72 characters\n" \
-                           "4. Use lowercase\n" \
+                           "4. ALWAYS use lowercase - this is mandatory\n" \
                            "5. Use present tense\n" \
                            "6. Be descriptive but concise\n" \
                            "7. Do not include a period at the end"
@@ -283,14 +311,39 @@ module GitAuto
                            "2. Use format: <type>(<scope>): <description>\n" \
                            "3. Valid types are: #{commit_types}\n" \
                            "4. Keep under 72 characters\n" \
-                           "5. Use lowercase\n" \
+                           "5. ALWAYS use lowercase - this is mandatory\n" \
                            "6. Use present tense\n" \
                            "7. Be descriptive but concise\n" \
                            "8. No period at the end\n" \
                            "9. NO explanations or additional text\n" \
                            "10. NO markdown formatting"
+                         when "detailed"
+                           "You are a commit message generator that MUST follow this format EXACTLY:\n" \
+                           "<summary line>\n" \
+                           "\n" \
+                           "<detailed description>\n" \
+                           "\n" \
+                           "Rules:\n" \
+                           "1. First line is a summary under 72 characters\n" \
+                           "2. ALWAYS use lowercase - this is mandatory\n" \
+                           "3. ALWAYS include a blank line after the summary\n" \
+                           "4. ALWAYS include a detailed description explaining:\n" \
+                           "   - What changes were made\n" \
+                           "   - Why the changes were necessary\n" \
+                           "   - Any technical details worth noting\n" \
+                           "5. Use bullet points for multiple changes\n" \
+                           "6. Use present tense\n" \
+                           "7. You can use periods in the detailed description\n" \
+                           "8. NO explanations or additional text\n" \
+                           "9. NO markdown formatting"
                          else
-                           "You are an expert in writing clear and concise git commit messages..."
+                           "You are an expert in writing clear and concise git commit messages.\n" \
+                           "Rules:\n" \
+                           "1. Keep the message under 72 characters\n" \
+                           "2. ALWAYS use lowercase - this is mandatory\n" \
+                           "3. Use present tense\n" \
+                           "4. Be descriptive but concise\n" \
+                           "5. Do not include a period at the end"
                          end
 
         user_message = if scope
@@ -319,15 +372,15 @@ module GitAuto
           ]
         }
 
-        # Uncomment the following lines to see the API request and response details for debugging
-        # log_api_request("claude", payload, temperature)
-        # log_api_response(response.body)
-
+        log_api_request("claude", payload, temperature) if @debug_mode
+        
         response = HTTP.headers({
                                   "Content-Type" => "application/json",
                                   "x-api-key" => api_key,
                                   "anthropic-version" => "2023-06-01"
                                 }).post(CLAUDE_API_URL, json: payload)
+
+        log_api_response(response.body) if @debug_mode
 
         message = handle_response(response)
         message = message.downcase.strip
@@ -346,6 +399,8 @@ module GitAuto
           "commit scope suggestion"
         when :minimal, "minimal"
           "minimal commit message"
+        when :detailed, "detailed"
+          "detailed commit message"
         else
           "commit message"
         end
@@ -355,38 +410,32 @@ module GitAuto
         case response.code
         when 200
           json = JSON.parse(response.body.to_s)
-          puts "\nDebug - API Response: #{json.inspect}"
 
           case @settings.get(:ai_provider)
           when "openai"
             message = json.dig("choices", 0, "message", "content")
-            if message.nil? || message.empty?
-              # puts "Debug - No content in response: #{json}"
-              raise Error, "No message content in response"
-            end
+            raise Error, "No message content in response" if message.nil? || message.empty?
 
-            # puts "Debug - OpenAI message: #{message}"
-            message.split("\n").first.strip
+            # For detailed style, keep the full message
+            if @settings.get(:commit_style) == "detailed"
+              message.strip
+            else
+              message.split("\n").first.strip
+            end
 
           when "claude"
             content = json.dig("content", 0, "text")
-            # puts "Debug - Claude content: #{content.inspect}"
+            raise Error, "No message content in response" if content.nil? || content.empty?
 
-            if content.nil? || content.empty?
-              # puts "Debug - No content in response: #{json}"
-              raise Error, "No message content in response"
+            # For detailed style, keep the full message
+            if @settings.get(:commit_style) == "detailed"
+              content.strip
+            else
+              # Extract the first actual commit message from the response
+              commit_message = content.scan(/(?:feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(?:\([^)]+\))?:.*/)&.first
+              raise Error, "No valid commit message found in response" if commit_message.nil?
+              commit_message.strip
             end
-
-            # Extract the first actual commit message from the response
-            commit_message = content.scan(/(?:feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(?:\([^)]+\))?:.*/)&.first
-
-            if commit_message.nil?
-              # puts "Debug - No valid commit message pattern found in content"
-              raise Error, "No valid commit message found in response"
-            end
-
-            # puts "Debug - Extracted commit message: #{commit_message}"
-            commit_message.strip
           end
         when 401
           raise APIKeyError, "Invalid API key" unless ENV["RACK_ENV"] == "test"

@@ -28,10 +28,14 @@ module GitAuto
 
       CONVENTIONAL_COMMIT_PATTERN = %r{
         ^(?<type>#{TYPES.keys.join("|")})           # Commit type
-        (\((?<scope>[a-z0-9/_-]+)\))?               # Optional scope in parentheses
+        (\((?<scope>[a-z0-9/_\.-]+)\))?               # Optional scope in parentheses
         :\s                                         # Colon and space separator
         (?<description>.+)                          # Commit description
       }x
+
+      def initialize(style = "conventional")
+        @style = style.to_s
+      end
 
       def validate(message)
         errors = []
@@ -77,12 +81,17 @@ module GitAuto
 
         errors << "Header exceeds #{HEADER_MAX_LENGTH} characters" if header.length > HEADER_MAX_LENGTH
 
-        # Validate header format for conventional and minimal commits
-        minimal_pattern = MINIMAL_COMMIT_PATTERN
-        conventional_pattern = CONVENTIONAL_COMMIT_PATTERN
-
-        unless minimal_pattern.match?(header) || conventional_pattern.match?(header)
-          errors << "Header must follow either minimal format: <type>: <description> or conventional format: <type>(<scope>): <description>"
+        # Validate header format based on style
+        case @style
+        when "conventional"
+          errors << "Header must follow conventional format: <type>(<scope>): <description>" unless CONVENTIONAL_COMMIT_PATTERN.match?(header)
+        when "minimal"
+          errors << "Header must follow minimal format: <type>: <description>" unless MINIMAL_COMMIT_PATTERN.match?(header)
+        when "simple", "detailed"
+          # No specific format required for simple and detailed styles
+        else
+          # For unknown styles, suggest using conventional format
+          warnings << "Unknown style '#{@style}', consider using conventional format: <type>(<scope>): <description>"
         end
 
         # Suggest using lowercase for consistency

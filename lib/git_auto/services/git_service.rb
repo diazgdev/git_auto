@@ -7,9 +7,14 @@ module GitAuto
     class GitService
       class Error < StandardError; end
 
-      def get_staged_diff
+      def get_staged_diff(files = nil)
         validate_git_repository!
-        execute_git_command("diff", "--cached")
+        if files
+          files = [files] unless files.is_a?(Array)
+          execute_git_command("diff", "--cached", "--", *files)
+        else
+          execute_git_command("diff", "--cached")
+        end
       end
 
       def get_staged_files

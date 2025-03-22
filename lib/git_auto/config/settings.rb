@@ -52,6 +52,11 @@ module GitAuto
         @settings[key.to_sym]
       end
 
+      def set(key, value)
+        @settings[key.to_sym] = value
+        save
+      end
+
       def all
         @settings
       end
