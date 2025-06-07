@@ -65,6 +65,9 @@ module GitAuto
         when "claude_api_key"
           @credential_store.store_api_key(value, "claude")
           puts "✓ Claude API key updated".green
+        when "gemini_api_key"
+          @credential_store.store_api_key(value, "gemini")
+          puts "✓ Gemini API key updated".green
         else
           @settings.set(key.to_sym, value)
           puts "✓ Setting '#{key}' updated to '#{value}'".green
@@ -122,10 +125,12 @@ module GitAuto
       end
 
       def configure_ai_provider
-        provider = @prompt.select("Choose AI provider:", {
-                                    "OpenAI (GPT-4, GPT-3.5 Turbo)" => "openai",
-                                    "Anthropic (Claude 3.5 Sonnet, Claude 3.5 Haiku)" => "claude"
-                                  })
+        # Use the supported providers from settings
+        provider_choices = Config::Settings::SUPPORTED_PROVIDERS.map do |key, info|
+          { name: info[:name], value: key }
+        end
+
+        provider = @prompt.select("Choose AI provider:", provider_choices)
 
         @settings.save(ai_provider: provider)
         puts "✓ AI provider updated to #{provider}".green

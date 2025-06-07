@@ -25,6 +25,12 @@ module GitAuto
             "GPT-4o" => "gpt-4o",
             "GPT-4o mini" => "gpt-4o-mini"
           }
+        },
+        "gemini" => {
+          name: "Google (Gemini 2.5 Flash)",
+          models: {
+            "Gemini 2.5 Flash Preview" => "gemini-2.5-flash-preview-05-20"
+          }
         }
       }.freeze
 

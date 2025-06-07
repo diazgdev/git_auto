@@ -14,6 +14,7 @@ module GitAuto
 
       OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
       CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+      GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
       MAX_DIFF_SIZE = 10_000
       MAX_RETRIES = 3
       BACKOFF_BASE = 2
@@ -25,10 +26,10 @@ module GitAuto
       end
 
       TEMPERATURE_VARIATIONS = [
-        { openai: 0.7, claude: 0.7 },
-        { openai: 0.8, claude: 0.8 },
-        { openai: 0.9, claude: 0.9 },
-        { openai: 1.0, claude: 1.0 }
+        { openai: 0.7, claude: 0.7, gemini: 0.7 },
+        { openai: 0.8, claude: 0.8, gemini: 0.8 },
+        { openai: 0.9, claude: 0.9, gemini: 0.9 },
+        { openai: 1.0, claude: 1.0, gemini: 1.0 }
       ].freeze
 
       def initialize(settings)
@@ -169,6 +170,8 @@ module GitAuto
             generate_openai_commit_message(diff, style, scope)
           when "claude"
             generate_claude_commit_message(diff, style, scope)
+          when "gemini"
+            generate_gemini_commit_message(diff, style, scope)
           else
             raise GitAuto::Errors::InvalidProviderError, "Invalid AI provider specified"
           end
@@ -192,8 +195,7 @@ module GitAuto
       def previous_suggestions_prompt
         return "" if @previous_suggestions.empty?
 
-        "\nPrevious suggestions that you MUST NOT repeat:\n" +
-          @previous_suggestions.map { |s| "- #{s}" }.join("\n")
+        "\nPrevious suggestions that you MUST NOT repeat:\n#{@previous_suggestions.map { |s| "- #{s}" }.join("\n")}"
       end
 
       def generate_openai_commit_message(diff, style, scope = nil, retry_attempt = nil)
@@ -388,6 +390,110 @@ module GitAuto
         add_suggestion(message)
       end
 
+      def generate_gemini_commit_message(diff, style, scope = nil, retry_attempt = nil)
+        api_key = @credential_store.get_api_key("gemini")
+        raise APIKeyError, "Gemini API key is not set. Please set it using `git_auto config`" unless api_key
+
+        # Only use temperature variations for retries
+        temperature = retry_attempt ? get_temperature(retry_attempt) : TEMPERATURE_VARIATIONS[0][:gemini]
+        commit_types = ["feat", "fix", "docs", "style", "refactor", "test", "chore", "perf", "ci", "build",
+                        "revert"].join("|")
+
+        system_message = case style.to_s
+                         when "minimal"
+                           "You are a commit message generator that MUST follow the minimal commit format: <type>: <description>\n" \
+                           "Valid types are: #{commit_types}\n" \
+                           "Rules:\n" \
+                           "1. ALWAYS start with a type from the list above\n" \
+                           "2. NEVER include a scope\n" \
+                           "3. Keep the message under 72 characters\n" \
+                           "4. ALWAYS use lowercase - this is mandatory\n" \
+                           "5. Use present tense\n" \
+                           "6. Be descriptive but concise\n" \
+                           "7. Do not include a period at the end"
+                         when "conventional"
+                           "You are a commit message generator that MUST follow these rules EXACTLY:\n" \
+                           "1. ONLY output a single line containing the commit message\n" \
+                           "2. Use format: <type>(<scope>): <description>\n" \
+                           "3. Valid types are: #{commit_types}\n" \
+                           "4. Keep under 72 characters\n" \
+                           "5. ALWAYS use lowercase - this is mandatory\n" \
+                           "6. Use present tense\n" \
+                           "7. Be descriptive but concise\n" \
+                           "8. No period at the end\n" \
+                           "9. NO explanations or additional text\n" \
+                           "10. NO markdown formatting"
+                         when "detailed"
+                           "You are a commit message generator that MUST follow this format EXACTLY:\n" \
+                           "<summary line>\n" \
+                           "\n" \
+                           "<detailed description>\n" \
+                           "\n" \
+                           "Rules:\n" \
+                           "1. First line is a summary under 72 characters\n" \
+                           "2. ALWAYS use lowercase - this is mandatory\n" \
+                           "3. ALWAYS include a blank line after the summary\n" \
+                           "4. ALWAYS include a detailed description explaining:\n" \
+                           "   - What changes were made\n" \
+                           "   - Why the changes were necessary\n" \
+                           "   - Any technical details worth noting\n" \
+                           "5. Use bullet points for multiple changes\n" \
+                           "6. Use present tense\n" \
+                           "7. You can use periods in the detailed description\n" \
+                           "8. NO explanations or additional text\n" \
+                           "9. NO markdown formatting"
+                         else
+                           "You are an expert in writing clear and concise git commit messages.\n" \
+                           "Rules:\n" \
+                           "1. Keep the message under 72 characters\n" \
+                           "2. ALWAYS use lowercase - this is mandatory\n" \
+                           "3. Use present tense\n" \
+                           "4. Be descriptive but concise\n" \
+                           "5. Do not include a period at the end"
+                         end
+
+        user_message = if scope
+                         "Generate a conventional commit message with scope '#{scope}' for this diff:\n\n#{diff}"
+                       else
+                         "Generate a #{style} commit message for this diff:\n\n#{diff}"
+                       end
+
+        model = @settings.get(:ai_model)
+        url = "#{GEMINI_API_URL}/#{model}:generateContent?key=#{api_key}"
+
+        payload = {
+          contents: [
+            {
+              parts: [
+                {
+                  text: "#{system_message}\n\n#{user_message}"
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: temperature,
+            topK: 40,
+            topP: 0.95,
+            candidateCount: 1,
+            maxOutputTokens: 1024
+          }
+        }
+
+        log_api_request("gemini", payload, temperature) if @debug_mode
+
+        response = HTTP.headers({
+                                  "Content-Type" => "application/json"
+                                }).post(url, json: payload)
+
+        log_api_response(response.body) if @debug_mode
+
+        message = handle_response(response)
+        message = message.downcase.strip
+        message = message.sub(/\.$/, "") # Remove trailing period if present
+        add_suggestion(message)
+      end
+
       def style_description(style, scope)
         case style
         when :conventional, "conventional"
@@ -436,6 +542,21 @@ module GitAuto
               raise Error, "No valid commit message found in response" if commit_message.nil?
               commit_message.strip
             end
+
+          when "gemini"
+            content = json.dig("candidates", 0, "content", "parts", 0, "text")
+            raise Error, "No message content in response" if content.nil? || content.empty?
+
+            # For detailed style, keep the full message
+            if @settings.get(:commit_style) == "detailed"
+              content.strip
+            else
+              # Clean up the response and extract just the commit message
+              lines = content.strip.split("\n")
+              # Find the first line that looks like a commit message
+              commit_line = lines.find { |line| line.match(/^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)/) }
+              commit_line || lines.first.strip
+            end
           end
         when 401
           raise APIKeyError, "Invalid API key" unless ENV["RACK_ENV"] == "test"
@@ -447,8 +568,27 @@ module GitAuto
 
           "test commit message"
 
+        when 403
+          # Gemini-specific error for invalid API key
+          provider = @settings.get(:ai_provider)
+          if provider == "gemini"
+            raise APIKeyError, "Invalid Gemini API key. Please check your API key at https://makersuite.google.com/app/apikey"
+          else
+            raise APIKeyError, "Access forbidden. Please check your API key."
+          end
+
         when 429
-          raise RateLimitError, "Rate limit exceeded"
+          provider = @settings.get(:ai_provider)
+          case provider
+          when "gemini"
+            raise RateLimitError, "Gemini API rate limit exceeded. Please wait a moment and try again."
+          when "openai"
+            raise RateLimitError, "OpenAI API rate limit exceeded. Please try again later."
+          when "claude"
+            raise RateLimitError, "Claude API rate limit exceeded. Please try again later."
+          else
+            raise RateLimitError, "Rate limit exceeded"
+          end
         else
           raise Error, "API request failed with status #{response.code}: #{response.body}"
         end

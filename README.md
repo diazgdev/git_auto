@@ -17,6 +17,7 @@ GitAuto is a Ruby gem that streamlines your git workflow by automatically genera
 - 🤖 **AI Providers**: Supports multiple AI providers:
   - OpenAI (GPT-4o, GPT-4o mini)
   - Anthropic (Claude 3.5 Sonnet, Claude 3.5 Haiku)
+  - Google (Gemini 2.5 Flash)
 - 🔒 **Secure Storage**: Your API keys are encrypted using AES-256-CBC and stored securely
 
 ## Requirements ⚙️
@@ -26,6 +27,7 @@ GitAuto is a Ruby gem that streamlines your git workflow by automatically genera
 - 🎟️ One magical ingredient: an API key! Choose your AI companion:
   - 🔑 OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
   - 🗝️ Anthropic API key ([Get one here](https://console.anthropic.com/))
+  - 🌟 Google Gemini API key ([Get one here](https://makersuite.google.com/app/apikey))
 
 That's it! Say goodbye to "misc fixes" and hello to commits that actually tell a story. Your future self will thank you! 🎩✨
 
@@ -108,8 +110,9 @@ git-auto commit
 
 Here's what we're planning for future releases:
 
-- 🤖 Support for Google Gemini AI
 - 📝 Automatic PR description generation
+- 🎯 Custom commit message templates
+- 🔄 Integration with Git hooks
 - More exciting features coming soon!
 
 ## Contributing 🤝
